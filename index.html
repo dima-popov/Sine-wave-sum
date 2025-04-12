@@ -21,6 +21,11 @@
     <button id="update">Оновити</button>
     <br><br>
     <canvas id="canvas" width="800" height="400"></canvas>
+    <br>
+    <label for="checkFreq">Перевірити частоту (Гц) - Трансформація Фур'є: </label>
+    <input type="number" id="checkFreq" value="1" step="0.1">
+    <button id="checkButton">Перевірити</button>
+    <p id="result"></p>
 
     <script>
         const canvas = document.getElementById('canvas');
@@ -28,29 +33,33 @@
         const freq1Input = document.getElementById('freq1');
         const freq2Input = document.getElementById('freq2');
         const updateButton = document.getElementById('update');
+        const checkFreqInput = document.getElementById('checkFreq');
+        const checkButton = document.getElementById('checkButton');
+        const resultText = document.getElementById('result');
 
         const width = canvas.width;
         const height = canvas.height;
         const amplitude = 100;
         const centerY = height / 2;
-        const samples = 2000; // Чим більше, тим плавніше
+        const samples = 2000;
 
         let freq1 = parseFloat(freq1Input.value);
         let freq2 = parseFloat(freq2Input.value);
 
-        // Функція для побудови графіків
+        let resultData = [];
+
         function draw() {
-            ctx.clearRect(0, 0, width, height); // Очищаємо канву
+            ctx.clearRect(0, 0, width, height);
 
             const data1 = [];
             const data2 = [];
-            const resultData = [];
+            resultData = [];
             const step = width / samples;
 
             for (let i = 0; i < samples; i++) {
                 const t = i * step / width;
                 const y1 = amplitude * Math.sin(2 * Math.PI * freq1 * t);
-                const y2 = amplitude * Math.sin(2 * Math.PI * freq2 * t + Math.PI); // Противофаза (фаза +π)
+                const y2 = amplitude * Math.sin(2 * Math.PI * freq2 * t + Math.PI);
                 const result = y1 + y2;
 
                 data1.push(y1);
@@ -58,7 +67,7 @@
                 resultData.push(result);
             }
 
-            // Малюємо першу хвилю (синя)
+            // Хвиля 1
             ctx.beginPath();
             ctx.moveTo(0, centerY - data1[0]);
             for (let i = 1; i < data1.length; i++) {
@@ -68,7 +77,7 @@
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Малюємо другу хвилю (зелена)
+            // Хвиля 2
             ctx.beginPath();
             ctx.moveTo(0, centerY - data2[0]);
             for (let i = 1; i < data2.length; i++) {
@@ -78,7 +87,7 @@
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Малюємо сумарну хвилю (червона)
+            // Сума
             ctx.beginPath();
             ctx.moveTo(0, centerY - resultData[0]);
             for (let i = 1; i < resultData.length; i++) {
@@ -89,14 +98,45 @@
             ctx.stroke();
         }
 
-        // Оновлення графіка при зміні частот
+        function DFT(signal, sampleRate) {
+            const N = signal.length;
+            const frequencies = [];
+            for (let k = 0; k < N / 2; k++) {
+                let real = 0;
+                let imag = 0;
+                for (let n = 0; n < N; n++) {
+                    const angle = 2 * Math.PI * k * n / N;
+                    real += signal[n] * Math.cos(angle);
+                    imag -= signal[n] * Math.sin(angle);
+                }
+                const magnitude = Math.sqrt(real * real + imag * imag);
+                const freq = k * sampleRate / N;
+                frequencies.push({ freq, magnitude });
+            }
+            return frequencies;
+        }
+
         updateButton.addEventListener('click', () => {
             freq1 = parseFloat(freq1Input.value);
             freq2 = parseFloat(freq2Input.value);
             draw();
         });
 
-        // Малюємо початковий графік
+        checkButton.addEventListener('click', () => {
+            const inputFreq = parseFloat(checkFreqInput.value);
+            const sampleRate = samples; // умовна частота дискретизації
+
+            const spectrum = DFT(resultData, sampleRate);
+            const tolerance = 0.5;
+            const peak = spectrum.find(p => Math.abs(p.freq - inputFreq) < tolerance);
+
+            if (peak && peak.magnitude > 1) {
+                resultText.textContent = `Частота ${inputFreq} Гц присутня. Інтенсивність: ${peak.magnitude.toFixed(2)}`;
+            } else {
+                resultText.textContent = `Частота ${inputFreq} Гц не виявлена.`;
+            }
+        });
+
         draw();
     </script>
 </body>
